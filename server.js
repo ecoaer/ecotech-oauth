@@ -92,6 +92,7 @@ app.get("/garmin/data", async (req, res) => {
   const token = { key: oauth_token, secret: oauth_token_secret };
 
   const endpoints = [
+    { name: "user_info", url: "https://apis.garmin.com/wellness-api/rest/user/id" },
     { name: "user_summary", url: "https://apis.garmin.com/wellness-api/rest/userSummary" },
     { name: "daily_summary", url: "https://apis.garmin.com/wellness-api/rest/dailies" }
   ];
