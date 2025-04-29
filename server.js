@@ -9,6 +9,7 @@ const CONSUMER_KEY = "b0f7d68c-cf48-40b0-97be-fb1c4e7c3d7f";
 const CONSUMER_SECRET = "sQ4dzcS9LruCV4fH";
 const CALLBACK_URL = "https://ecotech-oauth.onrender.com/oauth/callback";
 
+// Inițializează semnătura OAuth1
 const oauth = oauth1a({
   consumer: { key: CONSUMER_KEY, secret: CONSUMER_SECRET },
   signature_method: "HMAC-SHA1",
@@ -17,10 +18,12 @@ const oauth = oauth1a({
   },
 });
 
+// Test de pornire server
 app.get("/", (req, res) => {
-  res.send("✅ Ecotech OAuth1 server running.");
+  res.send("✅ Ecotech OAuth1 server is running.");
 });
 
+// Start OAuth
 app.get("/oauth/start", async (req, res) => {
   const request_data = {
     url: "https://connectapi.garmin.com/oauth-service/oauth/request_token",
@@ -45,6 +48,7 @@ app.get("/oauth/start", async (req, res) => {
   }
 });
 
+// Callback după autentificare
 app.get("/oauth/callback", async (req, res) => {
   const { oauth_token, oauth_verifier } = req.query;
   if (!oauth_token || !oauth_verifier) return res.status(400).send("Missing token or verifier");
@@ -56,7 +60,7 @@ app.get("/oauth/callback", async (req, res) => {
   };
 
   try {
-    const token = { key: oauth_token, secret: "" }; // secret optional aici
+    const token = { key: oauth_token, secret: "" }; // Garmin nu trimite secret temporar
     const headers = oauth.toHeader(oauth.authorize(request_data, token));
 
     const response = await axios.post(request_data.url, qs.stringify({ oauth_token, oauth_verifier }), {
