@@ -1,61 +1,95 @@
 const express = require("express");
 const axios = require("axios");
-const path = require("path");
+const crypto = require("crypto");
+const qs = require("querystring");
 const app = express();
 
-const CLIENT_ID = "37582612-90de-4a8c-a51b-cc6d4883522e";
-const CLIENT_SECRET = "hVS569gvgDAC0FoslF76pnFxomNFySkxNPD";
-const REDIRECT_URI = "https://ecotech-oauth.onrender.com/oauth/callback";
+const CONSUMER_KEY = "[37582612-90de-4a8c-a51b-cc6d4883522e]";
+const CONSUMER_SECRET = "[hVS569gvgDAC0FoslF76pnFxomNFySkxNPD]";
+const CALLBACK_URL = "https://ecotech-oauth.onrender.com/oauth/callback";
 
-// Servește fișiere statice, inclusiv index.html
-app.use(express.static(path.join(__dirname)));
+function getOAuthSignature(method, url, params, consumerSecret, tokenSecret = "") {
+  const sortedParams = Object.keys(params).sort().map(key => `${key}=${encodeURIComponent(params[key])}`).join('&');
+  const baseString = `${method.toUpperCase()}&${encodeURIComponent(url)}&${encodeURIComponent(sortedParams)}`;
+  const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
+  return crypto.createHmac('sha1', signingKey).update(baseString).digest('base64');
+}
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.send("✅ Ecotech OAuth1 server running.");
 });
 
-app.get("/oauth-callback.html", (req, res) => {
-  const code = req.query.code;
-  if (!code) return res.status(400).send("❌ Missing code.");
-  res.redirect(`/oauth/callback?code=${code}`);
-});
+app.get("/oauth/start", async (req, res) => {
+  const oauthParams = {
+    oauth_callback: CALLBACK_URL,
+    oauth_consumer_key: CONSUMER_KEY,
+    oauth_nonce: crypto.randomBytes(16).toString("hex"),
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: Math.floor(Date.now() / 1000),
+    oauth_version: "1.0"
+  };
 
-app.get("/oauth/callback", async (req, res) => {
-  const code = req.query.code;
-  if (!code) return res.status(400).send("❌ No code provided.");
+  oauthParams.oauth_signature = getOAuthSignature(
+    "POST",
+    "https://connectapi.garmin.com/oauth-service/oauth/request_token",
+    oauthParams,
+    CONSUMER_SECRET
+  );
 
   try {
     const response = await axios.post(
-      "https://connectapi.garmin.com/oauth-service/oauth/token",
-      new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        code: code,
-        grant_type: "authorization_code",
-        redirect_uri: REDIRECT_URI,
-      }).toString(),
+      "https://connectapi.garmin.com/oauth-service/oauth/request_token",
+      null,
       {
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
+          Authorization: `OAuth ${Object.entries(oauthParams).map(([k,v]) => `${k}="${encodeURIComponent(v)}"`).join(", ")}`
+        }
       }
     );
-
-    res.send(`
-      <h2>✅ Access Token Received!</h2>
-      <pre>${JSON.stringify(response.data, null, 2)}</pre>
-    `);
+    const { oauth_token } = qs.parse(response.data);
+    res.redirect(`https://connect.garmin.com/oauthConfirm?oauth_token=${oauth_token}`);
   } catch (err) {
-    const errorMsg = err.response?.data || err.message;
-    console.error("🔴 Error from Garmin:", errorMsg);
-    res.status(500).send(`
-      <h2>❌ Error exchanging token</h2>
-      <pre>${JSON.stringify(errorMsg, null, 2)}</pre>
-    `);
+    console.error("Error getting request token", err.response?.data || err.message);
+    res.status(500).send("Failed to get request token");
+  }
+});
+
+app.get("/oauth/callback", async (req, res) => {
+  const { oauth_token, oauth_verifier } = req.query;
+
+  const accessParams = {
+    oauth_consumer_key: CONSUMER_KEY,
+    oauth_nonce: crypto.randomBytes(16).toString("hex"),
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: Math.floor(Date.now() / 1000),
+    oauth_token,
+    oauth_verifier,
+    oauth_version: "1.0"
+  };
+
+  accessParams.oauth_signature = getOAuthSignature(
+    "POST",
+    "https://connectapi.garmin.com/oauth-service/oauth/access_token",
+    accessParams,
+    CONSUMER_SECRET
+  );
+
+  try {
+    const response = await axios.post(
+      "https://connectapi.garmin.com/oauth-service/oauth/access_token",
+      null,
+      {
+        headers: {
+          Authorization: `OAuth ${Object.entries(accessParams).map(([k,v]) => `${k}="${encodeURIComponent(v)}"`).join(", ")}`
+        }
+      }
+    );
+    res.send(`<pre>✅ Tokenul de acces:<br>${response.data}</pre>`);
+  } catch (err) {
+    console.error("Error getting access token", err.response?.data || err.message);
+    res.status(500).send("Eșec la obținerea access_token");
   }
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log("✅ Server listening on port", port);
-});
+app.listen(port, () => console.log("✅ Serverul OAuth1 ascultă pe portul", port));
