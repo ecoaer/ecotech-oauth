@@ -3,6 +3,7 @@ const axios = require("axios");
 const oauth1a = require("oauth-1.0a");
 const crypto = require("crypto");
 const qs = require("querystring");
+const fs = require("fs");
 
 const app = express();
 const tempSecrets = {}; // păstrează token_secret temporar
@@ -91,11 +92,8 @@ app.get("/garmin/data", async (req, res) => {
   const token = { key: oauth_token, secret: oauth_token_secret };
 
   const endpoints = [
-    { name: "user_profile", url: "https://apis.garmin.com/wellness-api/rest/user/id" },
-    { name: "activities", url: "https://apis.garmin.com/wellness-api/rest/activities" },
-    { name: "heart_rate", url: "https://apis.garmin.com/wellness-api/rest/heartRate" },
-    { name: "sleep", url: "https://apis.garmin.com/wellness-api/rest/sleep" },
-    { name: "stress", url: "https://apis.garmin.com/wellness-api/rest/stressDetails" }
+    { name: "user_summary", url: "https://apis.garmin.com/wellness-api/rest/userSummary" },
+    { name: "daily_summary", url: "https://apis.garmin.com/wellness-api/rest/dailies" }
   ];
 
   try {
@@ -108,7 +106,8 @@ app.get("/garmin/data", async (req, res) => {
       results[ep.name] = response.data;
     }
 
-    res.send(`<h2>✅ Garmin Full Data</h2><pre>${JSON.stringify(results, null, 2)}</pre>`);
+    fs.writeFileSync("garmin_export.json", JSON.stringify(results, null, 2));
+    res.send("<h2>✅ Garmin data saved to garmin_export.json</h2>");
   } catch (err) {
     console.error("❌ Failed to fetch Garmin data:", err.response?.data || err.message);
     res.send("Failed to fetch Garmin data");
