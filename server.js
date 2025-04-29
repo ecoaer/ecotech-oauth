@@ -7,7 +7,7 @@ const app = express();
 
 const CONSUMER_KEY = "b0f7d68c-cf48-40b0-97be-fb1c4e7c3d7f";
 const CONSUMER_SECRET = "sQ4dzcS9LruCV4fH";
-const CALLBACK_URL = "https://ecotech-oauth.onrender.com/oauth/callback";
+const CALLBACK_URL = "https://ecotech-oauth.onrender.com/oauth/callback.html";
 
 // Inițializează semnătura OAuth1
 const oauth = oauth1a({
