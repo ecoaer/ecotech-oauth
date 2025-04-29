@@ -4,8 +4,7 @@ const app = express();
 
 const CLIENT_ID = "37582612-90de-4a8c-a51b-cc6d4883522e";
 const CLIENT_SECRET = "hVS569gvgDAC0FoslF76pnFxomNFySkxNPD";
-const REDIRECT_URI = "https://judicious-mangrove-rowboat.glitch.me/oauth/callback";
-
+const REDIRECT_URI = "https://ecotech-oauth.onrender.com/oauth/callback";
 app.get("/", (req, res) => {
   res.send("✅ Ecotech OAuth server is running.");
 });
