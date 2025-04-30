@@ -101,14 +101,13 @@ app.get("/garmin/test", async (req, res) => {
     const response = await axios.get(request_data.url, { headers });
     const userId = response.data.userId;
 
-    const healthData = await axios.get("https://apis.garmin.com/wellness-api/rest/heartRate", {
-      headers,
-      params: { userId }
-    });
-
-    res.send(`<h2>✅ HEALTH DATA</h2><pre>${JSON.stringify(healthData.data, null, 2)}</pre>`);
+    res.send(`
+      <h2>✅ SUCCESS</h2>
+      <pre>${JSON.stringify({ userId }, null, 2)}</pre>
+      <p><b>NOTĂ:</b> pentru a cere datele de sănătate, trebuie autorizări suplimentare și parametri (ex: dată, tip date).</p>
+    `);
   } catch (err) {
-    console.error("❌ Failed to fetch Garmin health data:", err.response?.data || err.message);
+    console.error("❌ Failed to fetch Garmin user ID:", err.response?.data || err.message);
     res.send("Failed to fetch Garmin data");
   }
 });
