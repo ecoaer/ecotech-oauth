@@ -3,10 +3,9 @@ const axios = require("axios");
 const oauth1a = require("oauth-1.0a");
 const crypto = require("crypto");
 const qs = require("querystring");
-const fs = require("fs");
 
 const app = express();
-const tempSecrets = {}; // păstrează token_secret temporar
+const tempSecrets = {};
 
 const CONSUMER_KEY = "37582612-90de-4a8c-a51b-cc6d4883522e";
 const CONSUMER_SECRET = "hVS569gvgDAC0FoslF76pnFxomNFySkxNPD";
@@ -100,11 +99,15 @@ app.get("/garmin/test", async (req, res) => {
     const headers = oauth.toHeader(oauth.authorize(request_data, token));
     const response = await axios.get(request_data.url, { headers });
     const userId = response.data.userId;
+    const today = new Date().toISOString().split("T")[0];
 
     res.send(`
       <h2>✅ SUCCESS</h2>
       <pre>${JSON.stringify({ userId }, null, 2)}</pre>
       <p><b>NOTĂ:</b> pentru a cere datele de sănătate, trebuie autorizări suplimentare și parametri (ex: dată, tip date).</p>
+      <a href="/garmin/data?oauth_token=${oauth_token}&oauth_token_secret=${oauth_token_secret}&type=steps&date=${today}">
+        <button style="padding: 10px 20px; font-size: 16px;">🔍 Vezi pașii de azi</button>
+      </a>
     `);
   } catch (err) {
     console.error("❌ Failed to fetch Garmin user ID:", err.response?.data || err.message);
