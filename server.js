@@ -99,14 +99,16 @@ app.get("/garmin/test", async (req, res) => {
     const headers = oauth.toHeader(oauth.authorize(request_data, token));
     const response = await axios.get(request_data.url, { headers });
     const userId = response.data.userId;
+
     const today = new Date().toISOString().split("T")[0];
+    const btnLink = `/garmin/data?oauth_token=${oauth_token}&oauth_token_secret=${oauth_token_secret}&date=${today}&type=dailies`;
 
     res.send(`
       <h2>✅ SUCCESS</h2>
       <pre>${JSON.stringify({ userId }, null, 2)}</pre>
       <p><b>NOTĂ:</b> pentru a cere datele de sănătate, trebuie autorizări suplimentare și parametri (ex: dată, tip date).</p>
-      <a href="/garmin/data?oauth_token=${oauth_token}&oauth_token_secret=${oauth_token_secret}&type=steps&date=${today}">
-        <button style="padding: 10px 20px; font-size: 16px;">🔍 Vezi pașii de azi</button>
+      <a href="${btnLink}">
+        <button style="font-size:1.5rem;padding:1rem;border-radius:8px">🔍 Vezi pașii de azi</button>
       </a>
     `);
   } catch (err) {
@@ -123,7 +125,7 @@ app.get("/garmin/data", async (req, res) => {
   const token = { key: oauth_token, secret: oauth_token_secret };
 
   const endpointMap = {
-    steps: `https://apis.garmin.com/wellness-api/rest/steps?uploadStartTimeInSeconds=${Math.floor(new Date(date).getTime() / 1000)}`,
+    dailies: `https://apis.garmin.com/wellness-api/rest/dailies/${date}`,
     heartRate: `https://apis.garmin.com/wellness-api/rest/heartRate?startTimeInSeconds=${Math.floor(new Date(date).getTime() / 1000)}`,
     sleep: `https://apis.garmin.com/wellness-api/rest/sleepData/${date}`,
   };
