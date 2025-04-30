@@ -3,8 +3,10 @@ const axios = require("axios");
 const oauth1a = require("oauth-1.0a");
 const crypto = require("crypto");
 const qs = require("querystring");
+const fs = require("fs");
 
 const app = express();
+const tempSecrets = {}; // păstrează token_secret temporar
 
 const CONSUMER_KEY = "37582612-90de-4a8c-a51b-cc6d4883522e";
 const CONSUMER_SECRET = "hVS569gvgDAC0FoslF76pnFxomNFySkxNPD";
@@ -18,10 +20,8 @@ const oauth = oauth1a({
   },
 });
 
-const tempSecrets = {};
-
 app.get("/", (req, res) => {
-  res.send("✅ OAuth test server OK");
+  res.send("✅ Ecotech OAuth1 server running.");
 });
 
 app.get("/oauth/start", async (req, res) => {
@@ -43,7 +43,7 @@ app.get("/oauth/start", async (req, res) => {
     tempSecrets[respData.oauth_token] = respData.oauth_token_secret;
     res.redirect(`https://connect.garmin.com/oauthConfirm?oauth_token=${respData.oauth_token}`);
   } catch (err) {
-    console.error("❌ Request token error:", err.response?.data || err.message);
+    console.error("❌ Failed to get request token:", err.response?.data || err.message);
     res.send("Failed to get request token");
   }
 });
@@ -55,7 +55,10 @@ app.get("/oauth-callback.html", (req, res) => {
 
 app.get("/oauth/callback", async (req, res) => {
   const { oauth_token, oauth_verifier } = req.query;
+  if (!oauth_token || !oauth_verifier) return res.status(400).send("Missing token or verifier");
+
   const token_secret = tempSecrets[oauth_token];
+  if (!token_secret) return res.status(400).send("Missing token secret");
 
   const request_data = {
     url: "https://connectapi.garmin.com/oauth-service/oauth/access_token",
@@ -77,7 +80,7 @@ app.get("/oauth/callback", async (req, res) => {
     const redirectUrl = `/garmin/test?oauth_token=${finalData.oauth_token}&oauth_token_secret=${finalData.oauth_token_secret}`;
     res.redirect(redirectUrl);
   } catch (err) {
-    console.error("❌ Access token error:", err.response?.data || err.message);
+    console.error("❌ Failed to get access token:", err.response?.data || err.message);
     res.send("Failed to get access token");
   }
 });
@@ -87,6 +90,7 @@ app.get("/garmin/test", async (req, res) => {
   if (!oauth_token || !oauth_token_secret) return res.status(400).send("Missing tokens");
 
   const token = { key: oauth_token, secret: oauth_token_secret };
+
   const request_data = {
     url: "https://apis.garmin.com/wellness-api/rest/user/id",
     method: "GET",
@@ -94,22 +98,22 @@ app.get("/garmin/test", async (req, res) => {
 
   try {
     const headers = oauth.toHeader(oauth.authorize(request_data, token));
-    const response = await axios.get(request_data.url, {
-      headers: {
-        ...headers,
-        "User-Agent": "ecotech-oauth-test",
-        "Accept": "application/json"
-      }
+    const response = await axios.get(request_data.url, { headers });
+    const userId = response.data.userId;
+
+    const healthData = await axios.get("https://apis.garmin.com/wellness-api/rest/heartRate", {
+      headers,
+      params: { userId }
     });
 
-    res.send(`<h2>✅ SUCCESS</h2><pre>${JSON.stringify(response.data, null, 2)}</pre>`);
+    res.send(`<h2>✅ HEALTH DATA</h2><pre>${JSON.stringify(healthData.data, null, 2)}</pre>`);
   } catch (err) {
-    console.error("❌ Garmin API test failed:", err.response?.status, err.response?.data || err.message);
-    res.send(`<h2>❌ Failed to fetch Garmin data</h2><pre>${err.response?.status || "No status"} - ${JSON.stringify(err.response?.data || err.message, null, 2)}</pre>`);
+    console.error("❌ Failed to fetch Garmin health data:", err.response?.data || err.message);
+    res.send("Failed to fetch Garmin data");
   }
 });
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log("✅ Test server running on port", port);
+  console.log("✅ Server running on port", port);
 });
