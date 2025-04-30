@@ -112,6 +112,41 @@ app.get("/garmin/test", async (req, res) => {
   }
 });
 
+app.get("/garmin/data", async (req, res) => {
+  const { oauth_token, oauth_token_secret, date, type } = req.query;
+  if (!oauth_token || !oauth_token_secret || !date || !type)
+    return res.status(400).send("Missing token, date, or type");
+
+  const token = { key: oauth_token, secret: oauth_token_secret };
+
+  const endpointMap = {
+    steps: `https://apis.garmin.com/wellness-api/rest/steps?uploadStartTimeInSeconds=${Math.floor(new Date(date).getTime() / 1000)}`,
+    heartRate: `https://apis.garmin.com/wellness-api/rest/heartRate?startTimeInSeconds=${Math.floor(new Date(date).getTime() / 1000)}`,
+    sleep: `https://apis.garmin.com/wellness-api/rest/sleepData/${date}`,
+  };
+
+  const url = endpointMap[type];
+  if (!url) return res.status(400).send("Invalid data type");
+
+  const request_data = {
+    url,
+    method: "GET",
+  };
+
+  try {
+    const headers = oauth.toHeader(oauth.authorize(request_data, token));
+    const response = await axios.get(request_data.url, { headers });
+
+    res.send(`
+      <h2>✅ ${type} data for ${date}</h2>
+      <pre>${JSON.stringify(response.data, null, 2)}</pre>
+    `);
+  } catch (err) {
+    console.error("❌ Failed to fetch Garmin data:", err.response?.data || err.message);
+    res.send("Failed to fetch Garmin data");
+  }
+});
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log("✅ Server running on port", port);
