@@ -22,9 +22,18 @@ const oauth = OAuth({
 // Middleware to parse URL-encoded bodies
 app.use(express.urlencoded({ extended: true }));
 
-// Root endpoint
+// Root endpoint with a button to start OAuth flow
 app.get("/", (req, res) => {
-  res.send("✅ Ecotech OAuth1 server running.");
+  res.send(`
+    <h2>Ecotech Databridge</h2>
+    <p>✅ Ecotech OAuth1 server running.</p>
+    <p>Connect your Garmin account to fetch wellness data (steps, heart rate, sleep, etc.).</p>
+    <a href="/oauth/start">
+      <button style="font-size: 18px; padding: 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">
+        Connect with Garmin
+      </button>
+    </a>
+  `);
 });
 
 // Start OAuth flow: Request temporary token
@@ -32,7 +41,7 @@ app.get("/oauth/start", async (req, res) => {
   const requestData = {
     url: "https://connectapi.garmin.com/oauth-service/oauth/request_token",
     method: "POST",
-    data: { oauth_callback: CALLBACK_URL },
+    data: { oauth_callbackنج: CALLBACK_URL },
   };
 
   try {
@@ -49,7 +58,11 @@ app.get("/oauth/start", async (req, res) => {
   } catch (err) {
     const errorMessage = err.response?.data?.errorMessage || err.message;
     console.error("❌ Failed to get request token:", errorMessage);
-    res.status(500).send(`Failed to get request token: ${errorMessage}`);
+    res.status(500).send(`
+      <h2 style="color:red">❌ Failed to get request token</h2>
+      <p><b>Error:</b> ${errorMessage}</p>
+      <a href="/">Back to Home</a>
+    `);
   }
 });
 
@@ -92,7 +105,11 @@ app.get("/oauth/callback", async (req, res) => {
   } catch (err) {
     const errorMessage = err.response?.data?.errorMessage || err.message;
     console.error("❌ Failed to get access token:", errorMessage);
-    res.status(500).send(`Failed to get access token: ${errorMessage}`);
+    res.status(500).send(`
+      <h2 style="color:red">❌ Failed to get access token</h2>
+      <p><b>Error:</b> ${errorMessage}</p>
+      <a href="/">Back to Home</a>
+    `);
   }
 });
 
@@ -131,6 +148,8 @@ app.get("/garmin/test", async (req, res) => {
         </select><br><br>
         <button type="submit" style="font-size: 18px; padding: 10px;">🔍 Fetch Data</button>
       </form>
+      <br>
+      <a href="/">Back to Home</a>
     `);
   } catch (err) {
     const errorMessage = err.response?.data?.errorMessage || err.message;
@@ -140,6 +159,7 @@ app.get("/garmin/test", async (req, res) => {
       <h2 style="color:red">❌ Failed to fetch user ID</h2>
       <p><b>Error:</b> ${errorMessage}</p>
       <p><b>Status:</b> ${statusCode}</p>
+      <a href="/">Back to Home</a>
     `);
   }
 });
@@ -163,8 +183,16 @@ app.get("/garmin/data", async (req, res) => {
   }
 
   const token = { key: oauth_token, secret: oauth_token_secret };
-  const startTime = Math.floor(new Date(date).getTime() / 1000);
-  const endTime = startTime + 86400; // 24 hours later
+  let startTime, endTime;
+
+  // Adjust time range for sleep data (10 PM to 8 AM next day)
+  if (type === "sleep") {
+    startTime = Math.floor(new Date(date + "T22:00:00").getTime() / 1000); // 10 PM on the selected date
+    endTime = Math.floor(new Date(date + "T08:00:00").getTime() / 1000) + 86400; // 8 AM the next day
+  } else {
+    startTime = Math.floor(new Date(date).getTime() / 1000); // Start of the day
+    endTime = startTime + 86400; // End of the day (24 hours later)
+  }
 
   const endpointMap = {
     dailies: `https://apis.garmin.com/wellness-api/rest/dailies?uploadStartTimeInSeconds=${startTime}&uploadEndTimeInSeconds=${endTime}`,
@@ -191,10 +219,22 @@ app.get("/garmin/data", async (req, res) => {
     const errorMessage = err.response?.data?.errorMessage || err.message;
     const statusCode = err.response?.status || 500;
     console.error(`❌ Failed to fetch ${type} data:`, errorMessage, `Status: ${statusCode}`);
+    let helpMessage = "";
+    if (type === "sleep" && statusCode === 404) {
+      helpMessage = `
+        <p><b>Help:</b> This error usually means no sleep data is available for the selected date. Please try the following:</p>
+        <ul>
+          <li>Ensure your Garmin device has synced sleep data for this date in Garmin Connect.</li>
+          <li>Check if the app has permission to access Sleep Data in Garmin Connect > Connected Apps.</li>
+          <li>Try a different date (e.g., a recent night when you wore your device).</li>
+        </ul>
+      `;
+    }
     res.status(statusCode).send(`
       <h2 style="color:red">❌ Failed to fetch ${type} data</h2>
       <p><b>Error:</b> ${errorMessage}</p>
       <p><b>Status:</b> ${statusCode}</p>
+      ${helpMessage}
       <a href="/garmin/test?oauth_token=${oauth_token}&oauth_token_secret=${oauth_token_secret}">Back to Test</a>
     `);
   }
