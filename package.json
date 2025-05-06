@@ -1,15 +1,17 @@
 {
   "name": "ecotech-oauth",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node index.js"
   },
- {
   "dependencies": {
-    "express": "^4.17.1",
-    "axios": "^0.21.1",
+    "axios": "^1.7.2",
+    "express": "^4.19.2",
     "oauth-1.0a": "^2.2.6",
-    "querystring": "^0.2.0"
+    "querystring": "^0.2.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
