@@ -41,7 +41,7 @@ app.get("/oauth/start", async (req, res) => {
   const requestData = {
     url: "https://connectapi.garmin.com/oauth-service/oauth/request_token",
     method: "POST",
-    data: { oauth_callbackنج: CALLBACK_URL },
+    data: { oauth_callback: CALLBACK_URL },
   };
 
   try {
